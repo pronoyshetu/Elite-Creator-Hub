@@ -1,0 +1,208 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {uid}
+// Fields:
+//   - uid: string (required) - The unique ID of the user.
+//   - email: string (required) - The user's email address.
+//   - displayName: string (optional) - The user's display name.
+//   - photoURL: string (optional) - The user's profile photo URL.
+//   - credits: number (required) - The number of remaining credits.
+//   - createdAt: number (optional) - Timestamp when the user was created.
+//
+// Collection: models
+// Document ID: {modelId}
+// Fields:
+//   - id: string (required) - Unique ID of the model.
+//   - uid: string (required) - The ID of the user who owns this model.
+//   - name: string (required) - The name of the character.
+//   - description: string (required) - Detailed description of the character's traits and style.
+//   - dna: map (required) - Character DNA traits (faceStructure, skinTone, hairSignature, bodyProportions, seed).
+//   - referenceImages: list (required) - Array of base64 strings or URLs for reference images.
+//   - createdAt: number (required) - Timestamp when the model was created.
+//
+// Collection: generations
+// Document ID: {genId}
+// Fields:
+//   - id: string (required) - Unique ID of the generation.
+//   - uid: string (required) - The ID of the user who generated this image.
+//   - modelId: string (required) - The ID of the model used.
+//   - prompt: string (required) - The prompt used for generation.
+//   - resultUrl: string (required) - The URL of the generated image.
+//   - aspectRatio: string (required) - The aspect ratio of the generated image.
+//   - quality: string (required) - The quality level (Standard, HD, 4K).
+//   - batchSize: number (required) - The number of images in the batch.
+//   - seed: number (required) - The seed used for generation.
+//   - createdAt: number (required) - Timestamp when the image was generated.
+//
+// Collection: scripts
+// Document ID: {scriptId}
+// Fields:
+//   - id: string (required) - Unique ID of the script.
+//   - uid: string (required) - The ID of the user who owns this script.
+//   - influencer_id: string (optional) - Optional ID of the linked influencer model.
+//   - rawInput: string (required) - The original messy script text.
+//   - formattedOutput: map (required) - The structured script output.
+//   - tone: string (required) - The tone of the script.
+//   - type: string (required) - The format type (short/long).
+//   - createdAt: number (required) - Timestamp when the script was created.
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'credits']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.credits is number && data.credits >= 0;
+    }
+
+    function isValidModel(data) {
+      return data.keys().hasAll(['id', 'uid', 'name', 'description', 'dna', 'referenceImages', 'createdAt']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.description is string &&
+             data.dna is map &&
+             data.dna.keys().hasAll(['faceStructure', 'skinTone', 'hairSignature', 'bodyProportions', 'seed']) &&
+             data.referenceImages is list && data.referenceImages.size() >= 5 && data.referenceImages.size() <= 20 &&
+             data.createdAt is number;
+    }
+
+    function isValidGeneration(data) {
+      return data.keys().hasAll(['id', 'uid', 'modelId', 'prompt', 'resultUrl', 'aspectRatio', 'quality', 'batchSize', 'seed', 'createdAt']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.modelId is string &&
+             data.prompt is string && data.prompt.size() > 0 && data.prompt.size() < 5000 &&
+             isValidUrl(data.resultUrl) &&
+             data.aspectRatio is string &&
+             data.quality in ['Standard', 'HD', '4K'] &&
+             data.batchSize is number &&
+             data.seed is number &&
+             data.createdAt is number;
+    }
+
+    function isValidScript(data) {
+      return data.keys().hasAll(['id', 'uid', 'rawInput', 'formattedOutput', 'tone', 'type', 'createdAt']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             (!('influencer_id' in data) || data.influencer_id is string) &&
+             data.rawInput is string && data.rawInput.size() > 0 && data.rawInput.size() < 10000 &&
+             data.formattedOutput is map &&
+             data.tone in ['Viral', 'Professional', 'Casual'] &&
+             data.type in ['Short-form', 'Long-form'] &&
+             data.createdAt is number;
+    }
+
+    function isValidPosePrompt(data) {
+      return data.keys().hasAll(['id', 'uid', 'modelId', 'prompts', 'createdAt']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.modelId is string &&
+             (!('mood' in data) || data.mood is string) &&
+             (!('referenceUrl' in data) || data.referenceUrl is string) &&
+             data.prompts is list && data.prompts.size() <= 20 &&
+             data.createdAt is number;
+    }
+
+    function isValidSavedScene(data) {
+      return data.keys().hasAll(['id', 'uid', 'context', 'camera', 'fullPrompt', 'createdAt']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.context is string &&
+             data.camera is string &&
+             data.fullPrompt is string &&
+             (!('dnaProfile' in data) || data.dnaProfile is string) &&
+             (!('styleIdentity' in data) || data.styleIdentity is string) &&
+             data.createdAt is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data) && uidNotModified();
+      allow delete: if false; // Users cannot delete their profiles
+    }
+
+    match /models/{modelId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidModel(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidModel(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /generations/{genId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidGeneration(request.resource.data) && uidUnchanged();
+      allow update: if false; // Generations are immutable
+      allow delete: if isDocOwner();
+    }
+
+    match /scripts/{scriptId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidScript(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidScript(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /pose_prompts/{poseId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidPosePrompt(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidPosePrompt(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /saved_scenes/{sceneId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidSavedScene(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidSavedScene(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Stores user profile information and credits.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "description": "The user's profile photo URL." },
+        "credits": { "type": "number", "description": "The number of remaining credits." },
+        "createdAt": { "type": "number", "description": "Timestamp when the user was created." }
+      },
+      "required": ["uid", "email", "credits"]
+    },
+    "CloneModel": {
+      "title": "CloneModel",
+      "description": "A custom character model trained by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the model." },
+        "uid": { "type": "string", "description": "The ID of the user who owns this model." },
+        "name": { "type": "string", "description": "The name of the character." },
+        "description": { "type": "string", "description": "Detailed description of the character's traits and style." },
+        "dna": {
+          "type": "object",
+          "properties": {
+            "faceStructure": { "type": "string" },
+            "skinTone": { "type": "string" },
+            "hairSignature": { "type": "string" },
+            "bodyProportions": { "type": "string" },
+            "seed": { "type": "number" }
+          },
+          "required": ["faceStructure", "skinTone", "hairSignature", "bodyProportions", "seed"]
+        },
+        "referenceImages": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "Array of base64 strings or URLs for reference images." 
+        },
+        "createdAt": { "type": "number", "description": "Timestamp when the model was created." }
+      },
+      "required": ["id", "uid", "name", "description", "dna", "referenceImages", "createdAt"]
+    },
+    "CloneGeneration": {
+      "title": "CloneGeneration",
+      "description": "A record of an image generation using a clone model.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the generation." },
+        "uid": { "type": "string", "description": "The ID of the user who generated this image." },
+        "modelId": { "type": "string", "description": "The ID of the model used." },
+        "prompt": { "type": "string", "description": "The prompt used for generation." },
+        "resultUrl": { "type": "string", "description": "The URL of the generated image." },
+        "aspectRatio": { "type": "string", "description": "The aspect ratio of the generated image." },
+        "quality": { "type": "string", "enum": ["Standard", "HD", "4K"] },
+        "batchSize": { "type": "number" },
+        "seed": { "type": "number" },
+        "createdAt": { "type": "number", "description": "Timestamp when the image was generated." }
+      },
+      "required": ["id", "uid", "modelId", "prompt", "resultUrl", "aspectRatio", "quality", "batchSize", "seed", "createdAt"]
+    },
+    "Script": {
+      "title": "Script",
+      "description": "A formatted viral content script.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the script." },
+        "uid": { "type": "string", "description": "The ID of the user who owns this script." },
+        "influencer_id": { "type": "string", "description": "Optional ID of the linked influencer model." },
+        "rawInput": { "type": "string", "description": "The original messy script text." },
+        "formattedOutput": {
+          "type": "object",
+          "properties": {
+            "hook": { "type": "string" },
+            "body": { "type": "string" },
+            "cta": { "type": "string" },
+            "timestamps": {
+              "type": "object",
+              "properties": {
+                "hook": { "type": "string" },
+                "body": { "type": "string" },
+                "cta": { "type": "string" }
+              }
+            }
+          }
+        },
+        "tone": { "type": "string", "enum": ["Viral", "Professional", "Casual"] },
+        "type": { "type": "string", "enum": ["Short-form", "Long-form"] },
+        "createdAt": { "type": "number", "description": "Timestamp when the script was created." }
+      },
+      "required": ["id", "uid", "rawInput", "formattedOutput", "tone", "type", "createdAt"]
+    },
+    "PosePrompt": {
+      "title": "PosePrompt",
+      "description": "Generated pose prompts for a model.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the pose prompt record." },
+        "uid": { "type": "string", "description": "The ID of the user who owns this record." },
+        "modelId": { "type": "string", "description": "The ID of the model used." },
+        "mood": { "type": "string", "description": "The mood or scene description." },
+        "referenceUrl": { "type": "string", "description": "The reference URL used." },
+        "prompts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The generated prompts."
+        },
+        "createdAt": { "type": "number", "description": "Timestamp when the record was created." }
+      },
+      "required": ["id", "uid", "modelId", "prompts", "createdAt"]
+    },
+    "SavedScene": {
+      "title": "SavedScene",
+      "description": "A saved cinematic scene prompt for the Scene Generator.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "context": { "type": "string" },
+        "camera": { "type": "string" },
+        "fullPrompt": { "type": "string" },
+        "dnaProfile": { "type": "string" },
+        "styleIdentity": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "uid", "context", "camera", "fullPrompt", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profile and credit information."
+    },
+    "/models/{modelId}": {
+      "schema": "CloneModel",
+      "description": "Custom character models."
+    },
+    "/generations/{genId}": {
+      "schema": "CloneGeneration",
+      "description": "History of generated images."
+    },
+    "/scripts/{scriptId}": {
+      "schema": "Script",
+      "description": "Formatted content scripts."
+    },
+    "/pose_prompts/{poseId}": {
+      "schema": "PosePrompt",
+      "description": "Saved pose prompts."
+    },
+    "/saved_scenes/{sceneId}": {
+      "schema": "SavedScene",
+      "description": "Saved cinematic scene prompts."
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Elite Creator Hub & CSV Meta",
+  "description": "Multi-step AI creative dashboard with character cloning, script studio, and CSV Meta architect for commercial stock metadata and prompt reverse-engineering.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
